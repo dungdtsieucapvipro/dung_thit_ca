@@ -2,7 +2,7 @@ import { StationSkeleton } from "@/components/skeleton";
 import { selectedStationIndexState, stationsState } from "@/state";
 import type { Station } from "@/types";
 import { useAtomValue, useSetAtom } from "jotai";
-import { Suspense } from "react";
+import { Suspense, startTransition } from "react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 
@@ -35,14 +35,17 @@ function Stations() {
   const setSelectedStation = useSetAtom(selectedStationIndexState);
   const navigate = useNavigate();
 
+  if (!stations || stations.length === 0) return null;
   return stations.map((station, i) => (
     <Station
       key={station.id}
       station={station}
       onSelect={() => {
-        setSelectedStation(i);
-        toast.success("Đã thay đổi điểm nhận hàng");
-        navigate(-1);
+        startTransition(() => {
+          setSelectedStation(i);
+          toast.success("Đã thay đổi điểm nhận hàng");
+          navigate(-1);
+        });
       }}
     />
   ));

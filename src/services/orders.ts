@@ -20,6 +20,9 @@ function mapToOrder(row: any): Order {
     delivery,
     total: Number(row.total ?? 0),
     note: row.note ?? "",
+    canceledAt: row.canceled_at ? new Date(row.canceled_at) : undefined,
+    cancelExpiresAt: row.cancel_expires_at ? new Date(row.cancel_expires_at) : undefined,
+    previousStatus: row.previous_status || undefined,
   };
 }
 
@@ -68,6 +71,34 @@ export async function getOrderItemsOnDB(orderId: number): Promise<CartItem[]> {
     },
     quantity: Number(r.quantity),
   }));
+}
+
+export async function requestCancelOrder(orderId: number) {
+  const userId = await getZaloUserId();
+  const { data, error } = await supabase.rpc("rpc_request_cancel_order", {
+    p_user_id: userId,
+    p_order_id: orderId,
+  });
+  if (error) throw error;
+  return mapToOrder(data);
+}
+
+export async function undoCancelOrder(orderId: number) {
+  const userId = await getZaloUserId();
+  const { data, error } = await supabase.rpc("rpc_undo_cancel_order", {
+    p_user_id: userId,
+    p_order_id: orderId,
+  });
+  if (error) throw error;
+  return mapToOrder(data);
+}
+
+export async function cleanupExpiredCancellations() {
+  const { data, error } = await supabase.rpc("rpc_cleanup_expired_cancellations", {
+    p_user_id: null,
+  });
+  if (error) throw error;
+  return data as number;
 }
 
 

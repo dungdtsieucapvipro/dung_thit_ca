@@ -77,7 +77,27 @@ export default function CartItem(props: CartItemProps) {
             )}
           </div>
         </div>
-        <div className="text-sm font-medium">x{quantity}</div>
+        <div className="flex items-center space-x-2">
+          <button
+            className="w-7 h-7 rounded bg-section text-sm flex items-center justify-center"
+            onClick={(e) => {
+              e.stopPropagation();
+              setQuantity((q) => Math.max(0, q - 1));
+            }}
+          >
+            -
+          </button>
+          <div className="text-sm font-medium w-6 text-center">{quantity}</div>
+          <button
+            className="w-7 h-7 rounded bg-section text-sm flex items-center justify-center"
+            onClick={(e) => {
+              e.stopPropagation();
+              setQuantity((q) => q + 1);
+            }}
+          >
+            +
+          </button>
+        </div>
       </animated.div>
     </div>
   );

@@ -19,6 +19,7 @@ import {
   UserInfo,
 } from "@/types";
 import { requestWithFallback } from "@/utils/request";
+import { fetchStores } from "@/services/stores";
 import { listOrdersOnDB } from "@/services/orders";
 import { fetchBanners } from "@/services/banners";
 import { fetchCategories, fetchProducts, fetchFlashProducts } from "@/services/catalog";
@@ -209,43 +210,40 @@ export const stationsState = atom(async () => {
   let location: Location | undefined;
   try {
     const { token } = await getLocation({});
-    // Phía tích hợp làm theo hướng dẫn tại https://mini.zalo.me/documents/api/getLocation/ để chuyển đổi token thành thông tin vị trí người dùng ở server.
-    // location = await decodeToken(token);
-
-    // Các bước bên dưới để demo chức năng, phía tích hợp có thể bỏ đi sau.
-    toast(
-      "Đã lấy được token chứa thông tin vị trí người dùng. Phía tích hợp cần decode token này ở server. Giả lập vị trí tại VNG Campus...",
-      {
-        icon: "ℹ",
-        duration: 10000,
-      }
-    );
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    location = {
-      lat: 10.773756,
-      lng: 106.689247,
-    };
-    // End demo
+    // demo vị trí tĩnh
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    location = { lat: 10.773756, lng: 106.689247 };
   } catch (error) {
     console.warn(error);
   }
 
-  const stations = await requestWithFallback<Station[]>("/stations", []);
-  const stationsWithDistance = stations.map((station) => ({
-    ...station,
-    distance: location
-      ? formatDistant(
-          calculateDistance(
-            location.lat,
-            location.lng,
-            station.location.lat,
-            station.location.lng
+  try {
+    const stores = await fetchStores();
+    const mapped: Station[] = stores.map((s) => ({
+      id: s.id,
+      name: s.name,
+      image: s.image || "",
+      address: s.address,
+      location: s.location || { lat: 0, lng: 0 },
+    }));
+    return mapped.map((station) => ({
+      ...station,
+      distance: location
+        ? formatDistant(
+            calculateDistance(
+              location!.lat,
+              location!.lng,
+              station.location.lat,
+              station.location.lng
+            )
           )
-        )
-      : undefined,
-  }));
-
-  return stationsWithDistance;
+        : undefined,
+    }));
+  } catch {
+    // fallback mock nếu RPC lỗi
+    const stations = await requestWithFallback<Station[]>("/stations", []);
+    return stations;
+  }
 });
 
 export const selectedStationIndexState = atom(0);
@@ -253,8 +251,13 @@ export const selectedStationIndexState = atom(0);
 export const selectedStationState = atom(async (get) => {
   const index = get(selectedStationIndexState);
   const stations = await get(stationsState);
-  return stations[index];
+  if (!stations || stations.length === 0) return undefined as any;
+  const safeIndex = Math.max(0, Math.min(index, stations.length - 1));
+  return stations[safeIndex];
 });
+
+// Loadable version to avoid suspending in synchronous updates
+export const loadableSelectedStationState = loadable(selectedStationState);
 
 export const shippingAddressState = atomWithStorage<
   ShippingAddress | undefined

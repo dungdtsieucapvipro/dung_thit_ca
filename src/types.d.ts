@@ -74,4 +74,7 @@ export interface Order {
   delivery: Delivery;
   total: number;
   note: string;
+  canceledAt?: Date;
+  cancelExpiresAt?: Date;
+  previousStatus?: OrderStatus;
 }

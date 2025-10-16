@@ -2,6 +2,7 @@ import { useAtomValue } from "jotai";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   categoriesStateUpwrapped,
+  loadableSelectedStationState,
   loadableUserInfoState,
   userInfoState,
 } from "@/state";
@@ -20,6 +21,11 @@ export default function Header() {
   const location = useLocation();
   const [handle, match] = useRouteHandle();
   const userInfo = useAtomValue(loadableUserInfoState);
+  const selectedStationLoadable = useAtomValue(loadableSelectedStationState);
+  const selectedStation =
+    selectedStationLoadable.state === "hasData"
+      ? (selectedStationLoadable.data as any)
+      : undefined;
 
   const title = useMemo(() => {
     if (handle) {
@@ -44,18 +50,18 @@ export default function Header() {
         {handle?.logo ? (
           <>
             <img
-              src={getConfig((c) => c.template.logoUrl)}
-              className="flex-none w-8 h-8 rounded-full"
+              src={selectedStation?.image || getConfig((c) => c.template.logoUrl)}
+              className="flex-none w-8 h-8 rounded-full object-cover"
             />
             <TransitionLink to="/stations" className="flex-1 overflow-hidden">
               <div className="flex items-center space-x-1">
                 <h1 className="text-lg font-bold">
-                  {getConfig((c) => c.template.shopName)}
+                  {selectedStation?.name || getConfig((c) => c.template.shopName)}
                 </h1>
                 <Icon icon="zi-chevron-right" />
               </div>
               <p className="overflow-x-auto whitespace-nowrap text-2xs">
-                {getConfig((c) => c.template.shopAddress)}
+                {selectedStation?.address || getConfig((c) => c.template.shopAddress)}
               </p>
             </TransitionLink>
           </>
