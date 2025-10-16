@@ -211,14 +211,8 @@ export async function login(): Promise<ZaloUser> {
     const basicInfo = await getUserBasicInfo();
     console.log("✅ Got basic info:", basicInfo);
 
-    // 3. Thử lấy số điện thoại (không bắt buộc)
+    // 3. KHÔNG tự động lấy số điện thoại (tránh ghi đè số trong DB bằng mock)
     let phone: string | undefined;
-    try {
-      phone = await getUserPhoneNumber();
-      console.log("✅ Got phone number:", phone);
-    } catch (error) {
-      console.log("⚠️ Could not get phone number:", error);
-    }
 
     // 4. Tạo user object
     const user: ZaloUser = {
@@ -235,7 +229,8 @@ export async function login(): Promise<ZaloUser> {
         p_id: user.id,
         p_name: user.name ?? null,
         p_avatar: user.avatar ?? null,
-        p_phone: user.phone ?? null,
+        // Không gửi phone ở bước login để không ghi đè DB khi đang dùng mock
+        p_phone: null,
         p_last_login: user.lastLogin ?? new Date().toISOString(),
       });
       if (error) throw error;
@@ -284,7 +279,8 @@ export function getCurrentUser(): ZaloUser | null {
 export async function getCurrentUserFromDBFirst(): Promise<ZaloUser | null> {
   try {
     const cached = getUserFromStorage();
-    const id = cached?.id;
+    // Lấy id trực tiếp từ Zalo SDK để chống lệch cache
+    const id = await getZaloUserId();
     if (!id) return cached ?? null;
     const { data, error } = await supabase.rpc("get_user_by_zalo", { p_id: id });
     if (error) throw error;
