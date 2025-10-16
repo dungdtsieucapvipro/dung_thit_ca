@@ -2,6 +2,8 @@ import { useLocation } from "react-router-dom";
 import { Order } from "@/types";
 import OrderSummary from "./order-summary";
 import OrderInfo from "./order-info";
+import { useEffect, useState } from "react";
+import { getOrderItemsOnDB } from "@/services/orders";
 
 function OrderDetailPage() {
   // Phía tích hợp có thể lấy id từ query params, từ đó gọi API đến server để lấy thông tin chi tiết đơn hàng.
@@ -13,7 +15,26 @@ function OrderDetailPage() {
   // Điểm khác biệt lớn nhất là phương án này bắt buộc phải truy cập trang chi tiết đơn hàng từ trang danh sách đơn hàng,
   // chứ không thể truy cập trực tiếp từ deeplink như phương án trên.
   const { state } = useLocation();
-  const order = state as Order;
+  const initialOrder = state as Order;
+  const [order, setOrder] = useState<Order>(initialOrder);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const items = await getOrderItemsOnDB(initialOrder.id);
+        if (mounted) {
+          setOrder((prev) => ({ ...prev, items }));
+        }
+      } catch (e) {
+        // fallback giữ nguyên items cũ nếu lỗi
+        console.warn(e);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [initialOrder.id]);
 
   return (
     <div className="w-full p-4 space-y-2">

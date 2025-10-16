@@ -5,13 +5,17 @@ import { UIMatch, useMatches, useNavigate } from "react-router-dom";
 import {
   cartState,
   cartTotalState,
+  deliveryModeState,
+  shippingAddressState,
+  selectedStationState,
   ordersState,
   userInfoKeyState,
   userInfoState,
 } from "@/state";
 import { Product } from "@/types";
 import { getConfig } from "@/utils/template";
-import { authorize, createOrder, openChat } from "zmp-sdk/apis";
+import { authorize, openChat } from "zmp-sdk/apis";
+import { createOrderOnDB } from "@/services/orders";
 import { useAtomCallback } from "jotai/utils";
 
 export function useRealHeight(
@@ -117,20 +121,24 @@ export function useCheckout() {
   const requestInfo = useRequestInformation();
   const navigate = useNavigate();
   const refreshNewOrders = useSetAtom(ordersState("pending"));
+  const deliveryMode = useAtomValue(deliveryModeState);
+  const shippingAddress = useAtomValue(shippingAddressState);
+  const station = useAtomValue(selectedStationState);
 
   return async () => {
     try {
       await requestInfo();
-      await createOrder({
-        amount: totalAmount,
-        desc: "Thanh toán đơn hàng",
-        item: cart.map((item) => ({
-          id: item.product.id,
-          name: item.product.name,
-          price: item.product.price,
-          quantity: item.quantity,
-        })),
-      });
+      const items = cart.map((item) => ({
+        product_id: item.product.id,
+        quantity: item.quantity,
+      }));
+
+      const delivery =
+        deliveryMode === "shipping"
+          ? { type: "shipping" as const, address: shippingAddress }
+          : { type: "pickup" as const, stationId: station?.id ?? 0 };
+
+      await createOrderOnDB({ items, delivery, note: "" });
       setCart([]);
       refreshNewOrders();
       navigate("/orders", {

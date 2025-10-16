@@ -19,6 +19,8 @@ import {
   UserInfo,
 } from "@/types";
 import { requestWithFallback } from "@/utils/request";
+import { listOrdersOnDB } from "@/services/orders";
+import { fetchBanners } from "@/services/banners";
 import { fetchCategories, fetchProducts, fetchFlashProducts } from "@/services/catalog";
 import {
   getLocation,
@@ -95,9 +97,14 @@ export const phoneState = atom(async () => {
   return phone;
 });
 
-export const bannersState = atom(() =>
-  requestWithFallback<string[]>("/banners", [])
-);
+export const bannersState = atom(async () => {
+  try {
+    const list = await fetchBanners();
+    return list.map((b) => b.image);
+  } catch {
+    return await requestWithFallback<string[]>("/banners", []);
+  }
+});
 
 export const tabsState = atom(["Tất cả", "Nam", "Nữ", "Trẻ em"]);
 
@@ -154,7 +161,8 @@ export const productState = atomFamily((id: number) =>
   })
 );
 
-export const cartState = atom<Cart>([]);
+// Persist cart in localStorage to keep items visible on refresh
+export const cartState = atomWithStorage<Cart>(CONFIG.STORAGE_KEYS.CART, []);
 
 export const selectedCartItemIdsState = atom<number[]>([]);
 
@@ -254,13 +262,13 @@ export const shippingAddressState = atomWithStorage<
 
 export const ordersState = atomFamily((status: OrderStatus) =>
   atomWithRefresh(async () => {
-    // Phía tích hợp thay đổi logic filter server-side nếu cần:
-    // const serverSideFilteredData = await requestWithFallback<Order[]>(`/orders?status=${status}`, []);
-    const allMockOrders = await requestWithFallback<Order[]>("/orders", []);
-    const clientSideFilteredData = allMockOrders.filter(
-      (order) => order.status === status
-    );
-    return clientSideFilteredData;
+    try {
+      const rows = await listOrdersOnDB(status);
+      return rows;
+    } catch {
+      const allMockOrders = await requestWithFallback<Order[]>("/orders", []);
+      return allMockOrders.filter((order) => order.status === status);
+    }
   })
 );
 
