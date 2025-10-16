@@ -16,8 +16,8 @@ export const PermissionInfo: React.FC<PermissionInfoProps> = ({
         🔐 Cần cấp quyền truy cập
       </h3>
       <p className="text-xs text-blue-600 mb-3">
-        Để hiển thị đầy đủ thông tin (tên, avatar, số điện thoại), 
-        ứng dụng cần được cấp quyền truy cập. Nhấn nút bên dưới để cấp quyền.
+        Để hiển thị tên và avatar, ứng dụng cần được cấp quyền truy cập. 
+        Nhấn nút bên dưới để cấp quyền.
       </p>
       <Button
         small

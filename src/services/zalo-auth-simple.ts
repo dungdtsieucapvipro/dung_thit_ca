@@ -8,6 +8,7 @@ import {
 } from "zmp-sdk/apis";
 
 import { ZaloUser } from "../types/auth";
+import { supabase } from "../utils/supabase";
 
 const STORAGE_KEYS = {
   USER_DATA: "zalo_user_data",
@@ -155,7 +156,7 @@ export async function getUserBasicInfo(): Promise<Partial<ZaloUser>> {
   }
 }
 
-// Lấy số điện thoại
+// Lấy số điện thoại (chỉ dành cho doanh nghiệp được Zalo duyệt)
 export async function getUserPhoneNumber(): Promise<string | undefined> {
   try {
     console.log("🔐 Requesting phone number permission...");
@@ -170,12 +171,11 @@ export async function getUserPhoneNumber(): Promise<string | undefined> {
     const { token } = await getPhoneNumber();
     console.log("📞 Phone token received:", token);
 
-    // Lưu ý: Token này cần được gửi lên server để decode thành số điện thoại thực
-    // Hiện tại chúng ta sẽ giả lập số điện thoại để demo
-    // Trong thực tế, bạn cần:
-    // 1. Gửi token này lên server của bạn
-    // 2. Server gọi Zalo Open API để decode token
-    // 3. Trả về số điện thoại thực
+    // Lưu ý: Để lấy số điện thoại thực, cần:
+    // 1. Doanh nghiệp phải được Zalo duyệt
+    // 2. Gửi token này lên server của bạn
+    // 3. Server gọi Zalo Open API để decode token
+    // 4. Trả về số điện thoại thực
     
     console.log("⚠️ Phone token needs server-side processing");
     console.log("📝 For demo, using mock phone number");
@@ -229,9 +229,34 @@ export async function login(): Promise<ZaloUser> {
       lastLogin: new Date().toISOString(),
     };
 
-    // 5. Lưu vào localStorage
+    // 5. Đồng bộ xuống Supabase (nguồn dữ liệu chuẩn)
+    try {
+      const { data, error } = await supabase.rpc("upsert_user_by_zalo", {
+        p_id: user.id,
+        p_name: user.name ?? null,
+        p_avatar: user.avatar ?? null,
+        p_phone: user.phone ?? null,
+        p_last_login: user.lastLogin ?? new Date().toISOString(),
+      });
+      if (error) throw error;
+      // cập nhật lại theo DB nếu cần
+      if (data) {
+        user = {
+          id: data.id,
+          name: data.name ?? user.name,
+          avatar: data.avatar ?? user.avatar,
+          phone: data.phone ?? user.phone,
+          lastLogin: data.last_login ?? user.lastLogin,
+        };
+      }
+      console.log("✅ User synced to Supabase:", data);
+    } catch (dbErr) {
+      console.warn("⚠️ Supabase sync failed:", dbErr);
+    }
+
+    // 6. Lưu cache local để load nhanh
     saveUserToStorage(user);
-    console.log("✅ User saved to storage:", user);
+    console.log("✅ User cached to localStorage:", user);
 
     return user;
   } catch (error) {
@@ -255,27 +280,61 @@ export function getCurrentUser(): ZaloUser | null {
   return getUserFromStorage();
 }
 
+// Ưu tiên đọc DB rồi cập nhật cache (fallback cache nếu lỗi mạng)
+export async function getCurrentUserFromDBFirst(): Promise<ZaloUser | null> {
+  try {
+    const cached = getUserFromStorage();
+    const id = cached?.id;
+    if (!id) return cached ?? null;
+    const { data, error } = await supabase.rpc("get_user_by_zalo", { p_id: id });
+    if (error) throw error;
+    if (!data) return cached ?? null;
+    const user: ZaloUser = {
+      id: data.id,
+      name: data.name ?? "",
+      avatar: data.avatar ?? "",
+      phone: data.phone ?? "",
+      lastLogin: data.last_login ?? new Date().toISOString(),
+    };
+    saveUserToStorage(user);
+    return user;
+  } catch (e) {
+    console.warn("⚠️ getCurrentUserFromDBFirst fallback cache:", e);
+    return getUserFromStorage();
+  }
+}
+
 // Cập nhật thông tin user
-export function updateUserInfo(updates: Partial<ZaloUser>): ZaloUser | null {
+export async function updateUserInfoPersistent(
+  updates: Partial<ZaloUser>
+): Promise<ZaloUser | null> {
   try {
     const currentUser = getUserFromStorage();
     if (!currentUser) {
       console.warn("No user found to update");
       return null;
     }
+    // 1) Cập nhật DB trước
+    const { data, error } = await supabase.rpc("update_user_profile", {
+      p_id: currentUser.id,
+      p_name: updates.name ?? null,
+      p_phone: updates.phone ?? null,
+    });
+    if (error) throw error;
 
     const updatedUser: ZaloUser = {
       ...currentUser,
-      ...updates,
+      name: data?.name ?? currentUser.name,
+      phone: data?.phone ?? currentUser.phone,
       lastLogin: new Date().toISOString(),
     };
 
+    // 2) Cập nhật cache
     saveUserToStorage(updatedUser);
-    console.log("✅ User info updated:", updatedUser);
-
+    console.log("✅ User info updated (DB + cache):", updatedUser);
     return updatedUser;
   } catch (error) {
-    console.error("❌ Failed to update user info:", error);
+    console.error("❌ Failed to update user info persistent:", error);
     return null;
   }
 }

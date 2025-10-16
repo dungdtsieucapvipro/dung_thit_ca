@@ -2,10 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import {
   login,
   logout,
-  getCurrentUser,
-  updateUserInfo,
+  getCurrentUserFromDBFirst,
+  updateUserInfoPersistent,
   isLoggedIn,
-  getUserPhoneNumber,
 } from "../services/zalo-auth-simple";
 import { ZaloUser, UpdateProfileRequest } from "../types/auth";
 
@@ -20,7 +19,7 @@ export function useZaloAuth() {
       try {
         setIsLoading(true);
         if (isLoggedIn()) {
-          const currentUser = getCurrentUser();
+          const currentUser = await getCurrentUserFromDBFirst();
           setUser(currentUser);
         }
       } catch (err: any) {
@@ -66,7 +65,7 @@ export function useZaloAuth() {
     try {
       setIsLoading(true);
       setError(null);
-      const updatedUser = updateUserInfo(updates);
+      const updatedUser = await updateUserInfoPersistent(updates);
       if (!updatedUser) {
         throw new Error("Cập nhật thông tin thất bại");
       }
@@ -80,31 +79,13 @@ export function useZaloAuth() {
     }
   }, []);
 
-  const requestPhone = useCallback(async (): Promise<string | undefined> => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const phone = await getUserPhoneNumber();
-      if (phone && user) {
-        const updatedUser = { ...user, phone };
-        setUser(updatedUser);
-        updateUserInfo({ phone });
-      }
-      return phone;
-    } catch (err: any) {
-      setError(err.message || "Lỗi khi lấy số điện thoại");
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user]);
 
   const refreshUser = useCallback(async (): Promise<void> => {
     try {
       setIsLoading(true);
       setError(null);
       if (isLoggedIn()) {
-        const currentUser = getCurrentUser();
+        const currentUser = await getCurrentUserFromDBFirst();
         setUser(currentUser);
       }
     } catch (err: any) {
@@ -123,7 +104,6 @@ export function useZaloAuth() {
     login: loginUser,
     logout: logoutUser,
     updateProfile,
-    requestPhone,
     refreshUser,
   };
 }

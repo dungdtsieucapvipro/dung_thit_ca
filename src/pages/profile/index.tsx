@@ -13,7 +13,6 @@ const ProfilePage: React.FC = () => {
     login,
     logout, 
     updateProfile, 
-    requestPhone, 
     refreshUser 
   } = useZaloAuth();
   const { openSnackbar } = useSnackbar();
@@ -75,28 +74,6 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleRequestPhone = async () => {
-    try {
-      const phone = await requestPhone();
-      if (phone) {
-        setEditPhone(phone);
-        openSnackbar({
-          text: `Đã lấy số điện thoại: ${phone}`,
-          type: "success",
-        });
-      } else {
-        openSnackbar({
-          text: "Không thể lấy số điện thoại",
-          type: "warning",
-        });
-      }
-    } catch (error: any) {
-      openSnackbar({
-        text: error.message || "Lỗi khi lấy số điện thoại",
-        type: "error",
-      });
-    }
-  };
 
   const handleRefresh = async () => {
     try {
@@ -200,7 +177,7 @@ const ProfilePage: React.FC = () => {
           </div>
 
           {/* Thông báo cần cấp quyền */}
-          {(!user.name || !user.avatar || !user.phone) && (
+          {(!user.name || !user.avatar) && (
             <PermissionInfo 
               onRequestPermission={handleRequestPermission}
               isLoading={isLoading}
@@ -250,27 +227,30 @@ const ProfilePage: React.FC = () => {
                 Số điện thoại
               </label>
               {isEditing ? (
-                <div className="flex gap-2">
+                <div className="space-y-2">
                   <Input
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
                     placeholder="Nhập số điện thoại"
                     type="tel"
-                    className="flex-1"
+                    className="w-full"
                   />
-                  <Button
-                    small
-                    onClick={handleRequestPhone}
-                    loading={isLoading}
-                    className="bg-green-500 hover:bg-green-600"
-                  >
-                    📞
-                  </Button>
+                  <div className="text-xs text-gray-500">
+                    💡 Số điện thoại có thể chỉnh sửa thủ công. 
+                    Để lấy tự động cần doanh nghiệp được Zalo duyệt.
+                  </div>
                 </div>
               ) : (
-                <p className="text-gray-900 py-2 px-3 bg-gray-50 rounded-lg">
-                  {user.phone || "Chưa có"}
-                </p>
+                <div className="space-y-1">
+                  <p className="text-gray-900 py-2 px-3 bg-gray-50 rounded-lg">
+                    {user.phone || "Chưa có"}
+                  </p>
+                  {!user.phone && (
+                    <p className="text-xs text-gray-500">
+                      💡 Có thể chỉnh sửa thủ công hoặc cần doanh nghiệp được Zalo duyệt
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -318,7 +298,7 @@ const ProfilePage: React.FC = () => {
             <div><strong>User ID:</strong> {user?.id}</div>
             <div><strong>Name:</strong> {user?.name || "❌ Chưa có (cần quyền scope.userInfo)"}</div>
             <div><strong>Avatar:</strong> {user?.avatar || "❌ Chưa có (cần quyền scope.userInfo)"}</div>
-            <div><strong>Phone:</strong> {user?.phone || "❌ Chưa có (cần quyền scope.userPhonenumber + server decode)"}</div>
+            <div><strong>Phone:</strong> {user?.phone || "❌ Chưa có (cần doanh nghiệp được Zalo duyệt)"}</div>
             <div><strong>Last Login:</strong> {user?.lastLogin}</div>
             <div><strong>Is Logged In:</strong> {isLoggedIn ? "✅" : "❌"}</div>
             <div><strong>Loading:</strong> {isLoading ? "⏳" : "✅"}</div>
@@ -327,9 +307,9 @@ const ProfilePage: React.FC = () => {
           <div className="mt-2 text-xs text-gray-500">
             <p><strong>Lưu ý:</strong></p>
             <ul className="list-disc list-inside space-y-1">
-              <li>Để lấy tên và avatar: cần quyền <code>scope.userInfo</code></li>
-              <li>Để lấy số điện thoại: cần quyền <code>scope.userPhonenumber</code> + server decode token</li>
-              <li>Hiện tại đang dùng mock data cho demo</li>
+              <li>Để lấy tên và avatar: cần quyền <code>scope.userInfo</code> ✅</li>
+              <li>Để lấy số điện thoại: cần doanh nghiệp được Zalo duyệt + server decode token</li>
+              <li>Hiện tại có thể chỉnh sửa số điện thoại thủ công</li>
             </ul>
           </div>
         </div>
