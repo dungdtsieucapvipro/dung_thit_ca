@@ -8,7 +8,13 @@ function mapToOrder(row: any): Order {
   const delivery: Delivery =
     row.delivery_type === "shipping"
       ? ({ type: "shipping", ...(row.shipping_address ?? {}) } as any)
-      : ({ type: "pickup", stationId: Number(row.station_id) } as any);
+      : ({
+          type: "pickup",
+          stationId: Number(row.station_id),
+          // Gắn thêm snapshot cửa hàng nếu đã lưu trong shipping_address
+          name: row.shipping_address?.name,
+          address: row.shipping_address?.address,
+        } as any);
 
   return {
     id: Number(row.id),
@@ -30,13 +36,17 @@ export async function createOrderOnDB(params: {
   items: CreateOrderItem[];
   delivery: { type: "shipping"; address: any } | { type: "pickup"; stationId: number };
   note?: string;
+  pickupAddressSnapshot?: any; // optional snapshot for pickup to store in shipping_address
 }) {
   const userId = await getZaloUserId();
   const { data, error } = await supabase.rpc("rpc_create_order", {
     p_user_id: userId,
     p_items: params.items,
     p_delivery_type: params.delivery.type,
-    p_shipping_address: params.delivery.type === "shipping" ? params.delivery.address : null,
+    p_shipping_address:
+      params.delivery.type === "shipping"
+        ? params.delivery.address
+        : params.pickupAddressSnapshot ?? null,
     p_station_id: params.delivery.type === "pickup" ? params.delivery.stationId : null,
     p_note: params.note ?? null,
   });

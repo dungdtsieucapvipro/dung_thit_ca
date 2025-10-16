@@ -138,7 +138,24 @@ export function useCheckout() {
           ? { type: "shipping" as const, address: shippingAddress }
           : { type: "pickup" as const, stationId: station?.id ?? 0 };
 
-      await createOrderOnDB({ items, delivery, note: "" });
+      // Build shipping address snapshot even for pickup to lưu địa chỉ cửa hàng
+      // Server RPC sẽ nhận p_shipping_address cả 2 trường hợp
+      const pickupAddress =
+        deliveryMode === "pickup" && station
+          ? {
+              name: station.name,
+              alias: station.name,
+              phone: "",
+              address: station.address,
+            }
+          : undefined;
+
+      await createOrderOnDB({
+        items,
+        delivery,
+        note: "",
+        pickupAddressSnapshot: pickupAddress,
+      });
       setCart([]);
       refreshNewOrders();
       navigate("/orders", {
