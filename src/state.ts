@@ -19,6 +19,7 @@ import {
   UserInfo,
 } from "@/types";
 import { requestWithFallback } from "@/utils/request";
+import { fetchCategories, fetchProducts, fetchFlashProducts } from "@/services/catalog";
 import {
   getLocation,
   getPhoneNumber,
@@ -103,7 +104,13 @@ export const tabsState = atom(["Tất cả", "Nam", "Nữ", "Trẻ em"]);
 export const selectedTabIndexState = atom(0);
 
 export const categoriesState = atom(() =>
-  requestWithFallback<Category[]>("/categories", [])
+  (async () => {
+    try {
+      return await fetchCategories();
+    } catch {
+      return await requestWithFallback<Category[]>("/categories", []);
+    }
+  })()
 );
 
 export const categoriesStateUpwrapped = unwrap(
@@ -113,18 +120,30 @@ export const categoriesStateUpwrapped = unwrap(
 
 export const productsState = atom(async (get) => {
   const categories = await get(categoriesState);
-  const products = await requestWithFallback<
-    (Product & { categoryId: number })[]
-  >("/products", []);
+  let products: (Product & { categoryId: number })[] = [];
+  try {
+    products = await fetchProducts();
+  } catch {
+    products = await requestWithFallback<(Product & { categoryId: number })[]>("/products", []);
+  }
   return products.map((product) => ({
     ...product,
-    category: categories.find(
-      (category) => category.id === product.categoryId
-    )!,
+    category: categories.find((category) => category.id === product.categoryId)!,
   }));
 });
 
-export const flashSaleProductsState = atom((get) => get(productsState));
+export const flashSaleProductsState = atom(async (get) => {
+  const categories = await get(categoriesState);
+  try {
+    const list = await fetchFlashProducts();
+    return list.map((p) => ({
+      ...p,
+      category: categories.find((c) => c.id === p.categoryId)!,
+    }));
+  } catch {
+    return await get(productsState);
+  }
+});
 
 export const recommendedProductsState = atom((get) => get(productsState));
 
@@ -164,8 +183,17 @@ export const searchResultState = atom(async (get) => {
 export const productsByCategoryState = atomFamily((id: String) =>
   atom(async (get) => {
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    const products = await get(productsState);
-    return products.filter((product) => String(product.categoryId) === id);
+    try {
+      const categories = await get(categoriesState);
+      const list = await fetchProducts({ categoryId: Number(id) });
+      return list.map((p) => ({
+        ...p,
+        category: categories.find((c) => c.id === p.categoryId)!,
+      }));
+    } catch {
+      const products = await get(productsState);
+      return products.filter((product) => String(product.categoryId) === id);
+    }
   })
 );
 
